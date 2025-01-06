@@ -1,5 +1,9 @@
 # daily_report
 
 ```bash
-cargo run -- generate -r /repo/path -w YOUR_API_KEY
+cargo run -- generate --repo-path ~/documents/foo --wakatime-api-key YOUR_API_KEY --author-email hi@example.com
 ```
+
+## TODO
+
+- wakatime sync
