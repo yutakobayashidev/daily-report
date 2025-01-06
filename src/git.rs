@@ -1,3 +1,5 @@
+// src/git.rs
+
 use chrono::{DateTime, TimeZone, Utc};
 use git2::{Error, Repository};
 use std::path::Path;
@@ -9,7 +11,10 @@ pub struct CommitInfo {
     pub date: DateTime<Utc>,
 }
 
-pub fn get_commits(repo_path: &str) -> Result<Vec<CommitInfo>, Error> {
+pub fn get_commits(
+    repo_path: &str,
+    author_email: Option<String>,
+) -> Result<Vec<CommitInfo>, Error> {
     let repo = Repository::open(Path::new(repo_path))?;
     let mut revwalk = repo.revwalk()?;
     revwalk.push_head()?;
@@ -19,13 +24,26 @@ pub fn get_commits(repo_path: &str) -> Result<Vec<CommitInfo>, Error> {
     for commit_id in revwalk {
         let oid = commit_id?;
         let commit = repo.find_commit(oid)?;
+
+        // メールアドレスでフィルタリング
+        if let Some(ref email) = author_email {
+            if let Some(commit_email) = commit.author().email() {
+                if commit_email != email {
+                    continue; // メールアドレスが一致しない場合はスキップ
+                }
+            } else {
+                continue; // コミットにメールアドレスがない場合はスキップ
+            }
+        }
+
         let message = commit.message().unwrap_or("").to_string();
         let hash = oid.to_string();
 
+        // timestamp_opt を使用
         let commit_time = commit.time();
         let secs = commit_time.seconds();
         let datetime = Utc
-            .timestamp_opt(secs, 0)
+            .timestamp_opt(secs, 0) // ナノ秒部分を適切に設定
             .single()
             .ok_or_else(|| git2::Error::from_str("Invalid timestamp"))?;
 

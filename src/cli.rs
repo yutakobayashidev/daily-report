@@ -27,5 +27,9 @@ pub enum Commands {
         /// レポートの生成日時 (デフォルトは現在時刻、RFC 3339形式)
         #[arg(short = 'd', long)]
         datetime: Option<String>,
+
+        /// Gitのメールアドレスでフィルタリング
+        #[arg(short = 'a', long)]
+        author_email: Option<String>,
     },
 }
