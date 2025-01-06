@@ -5,6 +5,7 @@ use git2::{Error, Repository};
 use regex::Regex;
 use std::path::Path;
 
+/// コミット情報を保持する構造体
 pub struct CommitInfo {
     pub message: String,
     pub hash: String,
@@ -12,13 +13,29 @@ pub struct CommitInfo {
     pub date: DateTime<Utc>,
 }
 
+/// 指定されたリポジトリパスからコミット情報を取得する関数
+///
+/// # 引数
+///
+/// - `repo_path`: リポジトリのパス
+/// - `author_email`: フィルタリングに使用するメールアドレス（オプション）
+/// - `since`: 取得するコミットの開始日時
+/// - `until`: 取得するコミットの終了日時
+///
+/// # 戻り値
+///
+/// - 成功時: `CommitInfo` のベクター
+/// - 失敗時: `git2::Error`
 pub fn get_commits(
     repo_path: &str,
     author_email: Option<String>,
+    since: DateTime<Utc>,
+    until: DateTime<Utc>,
 ) -> Result<Vec<CommitInfo>, Error> {
     let repo = Repository::open(Path::new(repo_path))?;
     let mut revwalk = repo.revwalk()?;
     revwalk.push_head()?;
+    revwalk.set_sorting(git2::Sort::TIME)?;
 
     let mut commits = Vec::new();
 
@@ -28,6 +45,18 @@ pub fn get_commits(
     for commit_id in revwalk {
         let oid = commit_id?;
         let commit = repo.find_commit(oid)?;
+
+        // コミット日時をUTCで取得
+        let commit_time = commit.time();
+        let commit_datetime = Utc
+            .timestamp_opt(commit_time.seconds(), 0)
+            .single()
+            .ok_or_else(|| git2::Error::from_str("Invalid timestamp"))?;
+
+        // 時間範囲外のコミットはスキップ
+        if commit_datetime < since || commit_datetime > until {
+            continue;
+        }
 
         // メールアドレスでフィルタリング
         if let Some(ref email) = author_email {
@@ -59,16 +88,11 @@ pub fn get_commits(
             }
         }
 
-        let message = commit.message().unwrap_or("").to_string();
-        let hash = oid.to_string();
+        // コミットメッセージの最初の行（タイトル）を取得
+        let message_full = commit.message().unwrap_or("");
+        let message_title = message_full.lines().next().unwrap_or("").to_string();
 
-        // timestamp_opt を使用
-        let commit_time = commit.time();
-        let secs = commit_time.seconds();
-        let datetime = Utc
-            .timestamp_opt(secs, 0) // ナノ秒部分を適切に設定
-            .single()
-            .ok_or_else(|| git2::Error::from_str("Invalid timestamp"))?;
+        let hash = oid.to_string();
 
         // GitHubリポジトリのURLを取得
         let url = get_github_url(&repo)?;
@@ -77,17 +101,18 @@ pub fn get_commits(
         let commit_url = format!("{}/commit/{}", url, hash);
 
         commits.push(CommitInfo {
-            message,
+            message: message_title,
             hash: short_hash.to_string(),
             url: commit_url,
-            date: datetime,
+            date: commit_datetime,
         });
     }
 
     Ok(commits)
 }
 
-fn get_github_url(repo: &Repository) -> Result<String, Error> {
+/// GitHubリポジトリのHTTPS URLを取得する関数
+pub fn get_github_url(repo: &Repository) -> Result<String, Error> {
     let remotes = repo.remotes()?;
     for remote_name in remotes.iter().flatten() {
         let remote = repo.find_remote(remote_name)?;

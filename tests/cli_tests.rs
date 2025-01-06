@@ -1,5 +1,4 @@
-// tests/cli_tests.rs
-
+use chrono::{DateTime, Utc};
 use clap::Parser;
 use daily_report::cli::{Cli, Commands};
 
@@ -12,7 +11,7 @@ fn test_cli_generate_command() {
         "/path/to/repo",
         "--wakatime-api-key",
         "test_api_key",
-        "--datetime",
+        "--since",
         "2025-01-07T17:00:00Z",
     ];
     let cli = Cli::parse_from(args);
@@ -21,12 +20,19 @@ fn test_cli_generate_command() {
         Commands::Generate {
             repo_path,
             wakatime_api_key,
-            datetime,
+            since,
+            until,
             author_email,
         } => {
             assert_eq!(repo_path, "/path/to/repo");
             assert_eq!(wakatime_api_key, "test_api_key");
-            assert_eq!(datetime, Some("2025-01-07T17:00:00Z".to_string()));
+            assert_eq!(
+                since.unwrap(),
+                DateTime::parse_from_rfc3339("2025-01-07T17:00:00Z")
+                    .unwrap()
+                    .with_timezone(&Utc)
+            );
+            assert_eq!(until, None);
             assert_eq!(author_email, None); // author_email が指定されていないことを確認
         }
     }
@@ -46,12 +52,14 @@ fn test_cli_generate_command_defaults() {
         Commands::Generate {
             repo_path,
             wakatime_api_key,
-            datetime,
+            since,
+            until,
             author_email,
         } => {
             assert_eq!(repo_path, ".");
             assert_eq!(wakatime_api_key, "test_api_key");
-            assert_eq!(datetime, None);
+            assert_eq!(since, None); // since が指定されていないことを確認
+            assert_eq!(until, None); // until が指定されていないことを確認
             assert_eq!(author_email, None); // author_email が指定されていないことを確認
         }
     }
@@ -75,12 +83,14 @@ fn test_cli_generate_command_with_author_email() {
         Commands::Generate {
             repo_path,
             wakatime_api_key,
-            datetime,
+            since,
+            until,
             author_email,
         } => {
             assert_eq!(repo_path, "/path/to/repo");
             assert_eq!(wakatime_api_key, "test_api_key");
-            assert_eq!(datetime, None); // datetime が指定されていない場合は None
+            assert_eq!(since, None); // since が指定されていない場合は None
+            assert_eq!(until, None); // until が指定されていない場合は None
             assert_eq!(author_email, Some("user@example.com".to_string())); // author_email が指定されていることを確認
         }
     }
@@ -95,8 +105,10 @@ fn test_cli_generate_command_with_all_options() {
         "/path/to/repo",
         "--wakatime-api-key",
         "test_api_key",
-        "--datetime",
+        "--since",
         "2025-01-07T17:00:00Z",
+        "--until",
+        "2025-01-08T17:00:00Z",
         "--author-email",
         "user@example.com",
     ];
@@ -106,12 +118,24 @@ fn test_cli_generate_command_with_all_options() {
         Commands::Generate {
             repo_path,
             wakatime_api_key,
-            datetime,
+            since,
+            until,
             author_email,
         } => {
             assert_eq!(repo_path, "/path/to/repo");
             assert_eq!(wakatime_api_key, "test_api_key");
-            assert_eq!(datetime, Some("2025-01-07T17:00:00Z".to_string()));
+            assert_eq!(
+                since.unwrap(),
+                DateTime::parse_from_rfc3339("2025-01-07T17:00:00Z")
+                    .unwrap()
+                    .with_timezone(&Utc)
+            );
+            assert_eq!(
+                until.unwrap(),
+                DateTime::parse_from_rfc3339("2025-01-08T17:00:00Z")
+                    .unwrap()
+                    .with_timezone(&Utc)
+            );
             assert_eq!(author_email, Some("user@example.com".to_string()));
         }
     }

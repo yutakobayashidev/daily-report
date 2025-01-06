@@ -1,5 +1,3 @@
-// src/main.rs
-
 use daily_report::run;
 
 fn main() {
