@@ -2,6 +2,7 @@
 
 use chrono::{DateTime, TimeZone, Utc};
 use git2::{Error, Repository};
+use regex::Regex;
 use std::path::Path;
 
 pub struct CommitInfo {
@@ -21,18 +22,40 @@ pub fn get_commits(
 
     let mut commits = Vec::new();
 
+    // 共同著者を抽出するための正規表現
+    let co_author_re = Regex::new(r"(?i)Co-authored-by:\s*.*<([^<>]+)>").unwrap();
+
     for commit_id in revwalk {
         let oid = commit_id?;
         let commit = repo.find_commit(oid)?;
 
         // メールアドレスでフィルタリング
         if let Some(ref email) = author_email {
+            let mut include_commit = false;
+
+            // 主著者のメールアドレスをチェック
             if let Some(commit_email) = commit.author().email() {
-                if commit_email != email {
-                    continue; // メールアドレスが一致しない場合はスキップ
+                if commit_email == email {
+                    include_commit = true;
                 }
-            } else {
-                continue; // コミットにメールアドレスがない場合はスキップ
+            }
+
+            // 共同著者のメールアドレスをチェック
+            if !include_commit {
+                if let Some(message) = commit.message() {
+                    for caps in co_author_re.captures_iter(message) {
+                        if let Some(co_author_email) = caps.get(1) {
+                            if co_author_email.as_str() == email {
+                                include_commit = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+
+            if !include_commit {
+                continue; // 主著者または共同著者に指定されたメールアドレスが含まれていない場合はスキップ
             }
         }
 
