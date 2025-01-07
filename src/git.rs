@@ -1,5 +1,3 @@
-// src/git.rs
-
 use chrono::{DateTime, TimeZone, Utc};
 use git2::{Error, Repository};
 use regex::Regex;

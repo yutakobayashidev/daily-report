@@ -34,9 +34,9 @@ pub struct Cli {
 pub enum Commands {
     /// 日報を生成します
     Generate {
-        /// レポートの対象となるリポジトリのパス（デフォルトはカレントディレクトリ）
-        #[arg(short = 'r', long, default_value = ".")]
-        repo_path: String,
+        /// レポートの対象となるリポジトリのパス（複数指定可、デフォルトはカレントディレクトリ）
+        #[arg(short = 'r', long, default_values = &["."])]
+        repo_path: Vec<String>,
 
         /// WakaTimeのAPIキー
         #[arg(short = 'w', long)]
